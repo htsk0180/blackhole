@@ -6,7 +6,7 @@ kütleçekimsel kızıla kayma, Doppler ışınımı ve foton halkası GPU üzer
 (ray tracing) ile hesaplanır.
 
 Tek dosyadan oluşur: `index.html` — hiçbir bağımlılığı, derleme adımı veya internet
-bağlantısı yoktur.
+bağlantısı yoktur. Masaüstü ve mobil (dokunmatik) tarayıcılarda çalışır.
 
 ![Önizleme](onizleme.png)
 
@@ -101,12 +101,27 @@ bir son olarak modellenir.
 
 | Girdi | İşlev |
 |---|---|
-| Sürükle | Kamerayı döndür |
+| Sürükle (fare / parmak) | Kamerayı döndür |
 | Tekerlek / iki parmak | Yakınlaştır — uzaklaştır |
 | `H` | Arayüzü tamamen gizle / göster |
 | `P` | Kontrol panelini gizle / göster |
 | `Boşluk` | Simülasyon zamanını duraklat / devam |
 | `R` | Kamerayı sıfırla |
+
+### Mobil / dokunmatik
+
+![Mobil görünüm](mobil.png)
+
+- Telefonlarda sayfa **panel kapalı** açılır: karadelik tam ekran görünür. Sağ üstteki
+  **Simülasyon** düğmesi paneli alttan açılır bir sayfa (bottom sheet) olarak getirir;
+  panelin sağ üstündeki **✕** ile kapanır.
+- Tek parmakla sürükle → döndür, iki parmakla → yakınlaştır. Çift dokunma zoom'u ve
+  sayfa kaydırma, tam ekran deneyimi bozmasın diye kapatılmıştır.
+- İlk açılışta kalite dokunmatik cihazlarda **Orta**'dır; cihaz zorlanırsa kalite
+  otomatik olarak bir kademe düşürülür. Kaliteyi panelden elle seçersen otomatik
+  düşürme devre dışı kalır.
+- Çentik / güvenli alan (safe-area) boşlukları ve iOS adres çubuğu yükseklik
+  değişimleri (`dvh`) hesaba katılır.
 
 ## Simülasyon paneli
 
@@ -168,4 +183,5 @@ değerlerle (`0,7789 / 1,9552 rs`) 4 basamağa kadar örtüşür.
 - URL parametreleri (test/performans için):
   `?q=low|medium|high|ultra`, `?scale=0.5`, `?steps=120`, `?preset=gargantua|ekstremal`,
   `?kerr=0.9`, `?journey=35` (yolculuğu 35. saniyeden başlat),
-  `?dist=0.5&pitch=0.45` (kamera konumu)
+  `?dist=0.5&pitch=0.45` (kamera konumu), `?panel=0` (panel kapalı başlasın),
+  `?ui=0` (tüm arayüz gizli — vitrin/screenshot modu)

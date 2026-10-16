@@ -3,7 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Karadelik — Schwarzschild Simülasyonu</title>
+<meta name="theme-color" content="#05070c">
+<meta name="description" content="Tarayıcıda gerçek zamanlı Schwarzschild ve Kerr (dönen) karadeliği simülasyonu: ışın izleme, kütleçekimsel mercek, disk, yolculuk modu.">
+<title>Karadelik — Kerr &amp; Schwarzschild simülasyonu</title>
 <style>
   :root{
     --fg: #cdd6e4;
@@ -12,12 +14,13 @@
     --panel-bg: rgba(9,12,20,.74);
     --line: rgba(255,255,255,.09);
   }
-  *{ box-sizing: border-box; }
+  *{ box-sizing: border-box; touch-action: manipulation; }
   html, body{ margin:0; padding:0; height:100%; background:#000; overflow:hidden; }
   body{
     font-family: ui-sans-serif, -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
     color: var(--fg);
     -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
   }
   canvas#c{
     position: fixed; inset: 0;
@@ -25,6 +28,8 @@
     display: block;
     touch-action: none;
     cursor: grab;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
   }
   canvas#c.dragging{ cursor: grabbing; }
 
@@ -63,7 +68,10 @@
     position: fixed; top: 16px; right: 16px;
     width: min(318px, calc(100vw - 32px));
     max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
     overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     padding: 16px;
     background: var(--panel-bg);
     border: 1px solid var(--line);
@@ -82,6 +90,20 @@
     text-transform: uppercase;
     color: var(--dim);
   }
+  .phead{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0 0 12px; }
+  aside#panel .phead h2{ margin:0; }
+  #panelClose{
+    font: inherit; font-size: 13px; line-height: 1;
+    width: 32px; height: 32px; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--dim);
+    background: rgba(255,255,255,.055);
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  #panelClose:hover{ background: rgba(111,211,255,.14); border-color: rgba(111,211,255,.4); color:#eaf6ff; }
   .row{ margin: 11px 0; }
   .row .lab{
     display: flex; justify-content: space-between; align-items: baseline;
@@ -207,7 +229,45 @@
     transition: opacity .25s;
   }
   body.ui-hidden #hint{ opacity: 0; }
-  @media (max-width: 640px){ #hint{ display:none; } }
+  @media (max-width: 900px) and (min-width: 641px){
+    header .sub{ display:none; }
+    header .stats{ max-width: calc(100vw - 370px); }
+  }
+  @media (max-width: 640px){
+    #hint{ display:none; }
+    header{ padding: 14px 16px; }
+    header h1{ font-size: 15px; letter-spacing: .3em; }
+    header .sub{ display:none; }
+    header .stats{ font-size: 10.5px; margin-top: 6px; max-width: calc(100vw - 110px); }
+    /* panel: telefonlarda alt sayfa (bottom sheet) */
+    aside#panel{
+      top: auto; left: 10px; right: 10px;
+      bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+      width: auto;
+      max-height: 52vh;
+      max-height: 52dvh;
+      padding: 14px;
+      border-radius: 18px;
+    }
+    #panelToggle{
+      top: calc(12px + env(safe-area-inset-top, 0px));
+      right: 12px;
+      padding: 10px 14px;
+      font-size: 12px;
+    }
+    .row{ margin: 10px 0; }
+    .checks{ gap: 9px; }
+    #journey{
+      bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+      width: calc(100vw - 20px);
+      max-height: 56vh;
+      max-height: 56dvh;
+      padding: 14px;
+    }
+    #journey .jtext{ font-size: 12px; margin: 2px 0 8px; }
+    #journey .jstats{ font-size: 11px; gap: 5px 14px; padding: 8px 10px; }
+    #fallback{ padding: 26px; font-size: 14px; }
+  }
 
   #btnJourney{
     display: block;
@@ -235,7 +295,10 @@
     transform: translateX(-50%);
     width: min(760px, calc(100vw - 32px));
     max-height: min(46vh, 420px);
+    max-height: min(46dvh, 420px);
     overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     padding: 16px 18px 14px;
     background: var(--panel-bg);
     border: 1px solid rgba(111,211,255,.22);
@@ -337,7 +400,10 @@
 </header>
 
 <aside id="panel">
-  <h2>Simülasyon</h2>
+  <div class="phead">
+    <h2>Simülasyon</h2>
+    <button id="panelClose" aria-label="Paneli kapat" title="Paneli kapat">✕</button>
+  </div>
 
   <div class="row">
     <div class="lab"><span>Disk parlaklığı</span><span class="val" id="v-bright">1.50</span></div>
@@ -1134,11 +1200,12 @@ const QUALITY = {
 };
 
 // ---------- durum ----------
+const COARSE = matchMedia('(pointer: coarse)').matches;   // dokunmatik cihaz?
 const params = {
   bright: 1.5, temp: 9500, inner: 3.0, outer: 13, spin: 1.0,
   rel: 1.0, star: 1.0, neb: 1.0, bloom: 1.1, expo: 0.0, fov: 50,
   kerr: 0.0, ergo: false,
-  quality: 'high', autoRotate: true, paused: false,
+  quality: COARSE ? 'medium' : 'high', autoRotate: true, paused: false,
 };
 
 const cam = {
@@ -1273,11 +1340,20 @@ function blurPass(src, dst, dx, dy, radius) {
 
 // ---------- render döngüsü ----------
 let lastT = performance.now();
+let qCheckT = 0;       // uyarlanabilir kalite kontrol zamanlayıcısı
+let qLocked = false;   // kullanıcı/?q= kalite seçtiyse otomatik düşürme kapalı
+const QNEXT = { ultra: 'high', high: 'medium', medium: 'low' };
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = clamp((now - lastT) / 1000, 0.0001, 0.05);
   lastT = now;
   fpsEMA += ((1 / dt) - fpsEMA) * 0.05;
+  // uyarlanabilir kalite: cihaz zorlanıyorsa (mobil) kademeli olarak düşür
+  qCheckT += dt;
+  if (qCheckT > 3.0) {
+    qCheckT = 0;
+    if (!qLocked && fpsEMA < 21 && QNEXT[params.quality]) setQuality(QNEXT[params.quality]);
+  }
 
   if (params.autoRotate && !dragging && !journey.active) cam.tYaw += dt * 0.045;
   if (!params.paused) simTime += dt;
@@ -1403,6 +1479,10 @@ canvas.addEventListener('wheel', (e) => {
   if (journey.active) return;
   cam.tDist = clamp(cam.tDist * Math.exp(e.deltaY * 0.0012), minCamDist(), 42);
 }, { passive: false });
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+// iOS Safari: sayfanın kendisinin pinch-zoom yapmasını engelle (uygulama tam ekran)
+['gesturestart', 'gesturechange', 'gestureend'].forEach((ev) =>
+  document.addEventListener(ev, (e) => e.preventDefault()));
 
 function resetView() {
   cam.tYaw = 2.1;
@@ -1472,15 +1552,23 @@ document.getElementById('t-isco').addEventListener('change', iscoTick);
 document.getElementById('t-ergo').addEventListener('change', (e) => { params.ergo = e.target.checked; });
 
 const selQ = document.getElementById('s-quality');
-selQ.addEventListener('change', () => {
-  params.quality = selQ.value;
-  renderScale = QUALITY[params.quality].scale;
-  dprCap = QUALITY[params.quality].dprCap;
+function setQuality(v) {
+  params.quality = v;
+  selQ.value = v;
+  renderScale = QUALITY[v].scale;
+  dprCap = QUALITY[v].dprCap;
   resize();
+}
+selQ.addEventListener('change', () => {
+  qLocked = true;               // kullanıcı bilinçli seçti → otomatik düşürme yok
+  setQuality(selQ.value);
 });
 
 document.getElementById('panelToggle').addEventListener('click', () => {
   document.body.classList.remove('panel-hidden');
+});
+document.getElementById('panelClose').addEventListener('click', () => {
+  document.body.classList.add('panel-hidden');
 });
 
 // ---------- hazır ayarlar ----------
@@ -1726,6 +1814,7 @@ if (qs.has('q') && QUALITY[qs.get('q')]) {
   selQ.value = params.quality;
   renderScale = QUALITY[params.quality].scale;
   dprCap = QUALITY[params.quality].dprCap;
+  qLocked = true;               // URL'den seçildi → uyarlanabilir düşürme kapalı
 }
 if (qs.has('scale')) renderScale = clamp(parseFloat(qs.get('scale')) || renderScale, 0.1, 1.0);
 if (qs.has('steps')) QUALITY[params.quality].steps = clamp(parseInt(qs.get('steps')) || 280, 20, 600);
@@ -1750,6 +1839,14 @@ if (qs.has('journey')) {
     journey.done = jt >= JOURNEY_TOTAL;
   }
 }
+
+// panel / arayüz görünürlüğü: ?panel=0|1, ?ui=0
+// mobilde varsayılan: panel kapalı başlar, manzarayı kapatmasın
+const pPref = qs.get('panel');
+if (pPref === '0' || (pPref !== '1' && matchMedia('(max-width: 640px)').matches)) {
+  document.body.classList.add('panel-hidden');
+}
+if (qs.get('ui') === '0') document.body.classList.add('ui-hidden');
 
 // ---------- başlat ----------
 resize();
