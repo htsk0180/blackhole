@@ -1,3 +1,4 @@
+https://blackhole-karadelik.vercel.app/
 # Karadelik Simülasyonu 🕳️
 
 Tarayıcıda çalışan, **gerçek zamanlı Schwarzschild ve Kerr (dönen) karadeliği** simülasyonu.
